@@ -134,7 +134,7 @@ const KINDS = {
   IO:{name:'Dental intraoral', short:'IO', sections:[
     ['Unit',ID],
     ['Exposures',[METER,
-      ['block','Unit no. inside the meter file','',N,{req:1,h:'1st unit measured = 1, 2nd = 2 …'}],
+      ['block','Unit no. inside the meter file','',N,{ph:'auto',h:'Leave empty = order you added the units (1st IO unit = 1, 2nd = 2 …)'}],
       ['ma','mA used','mA',N,{req:1}],
       ['kv_lo','Set kV, shots 1-3','kV',N,{req:1}],
       ['kv_hi','Set kV, shots 4-11','kV',N,{req:1}]]],
