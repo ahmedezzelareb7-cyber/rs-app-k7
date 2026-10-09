@@ -286,7 +286,19 @@ const STD={
   Mammo:{set_kv:'22,23,24,25,26,27,28,29,30,31,32,27,27,27'},
   Carm:{n_fluoro:'11',set_kv_fluoro:'50,60,70,80,90,100,110,120,70,70,70'},
 };
-function applyStd(u){ if(u.stdApplied) return false; const d=STD[u.kind]||{}; let n=0;
+/* Fixed X-ray: standard protocol follows the unit's max kV (150: 50-150 kV @5 ms; 125/133: 50-120/130 kV, 5 ms to 90 kV then 10 ms) */
+function fixedProto(mk){ mk=Number(mk); if(!mk||isNaN(mk)) mk=150; const top=Math.floor(Math.min(150,Math.max(90,mk))/10)*10;
+  const sw=[]; for(let k=50;k<=top;k+=10) sw.push(k);
+  const st=sw.map(k=>(mk>=150||k<=90)?5:10), ms=st.concat([10,10,10,20,40,80,100,160]);
+  return {set_kv:sw.concat([70,70,70,70,70,70,70,70]).join(','), set_t:ms.join(','), set_mas:ms.map(t=>+(t*0.25).toFixed(2)).join(',')} }
+function isStdFixed(F){ const all=[90,100,110,120,125,130,133,140,150].map(fixedProto);
+  return ['set_kv','set_t','set_mas'].every(k=>isEmpty(F[k]) || all.some(p=>p[k]===String(F[k]).replace(/\s+/g,''))) }
+function applyFixedProto(u){ if(u.kind!=='Fixed' || !isStdFixed(u.fields)) return false; const p=fixedProto(u.fields.max_kv); let ch=false;
+  for(const k of ['set_kv','set_t','set_mas']) if(u.fields[k]!==p[k]){u.fields[k]=p[k]; ch=true}
+  return ch }
+function applyStd(u){ if(u.kind==='Fixed'){ const a=!u.stdApplied; u.stdApplied=true; const b=applyFixedProto(u);
+    if(a && isEmpty(u.fields.sid)) u.fields.sid='100'; if(a && isEmpty(u.fields.focal)) u.fields.focal='Small'; return a||b }
+  if(u.stdApplied) return false; const d=STD[u.kind]||{}; let n=0;
   for(const [k,v] of Object.entries(d)) if(isEmpty(u.fields[k])){u.fields[k]=v;n++}
   u.stdApplied=true; return n>0 }
 /* ---------- device catalogue (from ~3,400 previous QC reports) + what you add yourself ---------- */
@@ -342,6 +354,7 @@ function wireCatalog(){
   const apply=()=>{const hit=findModel(kind,man?.value,mod?.value); if(!hit) return;
     const fill={manufacturer:hit.man,...modelDefaults(kind,hit)}; let n=0;
     for(const [k,v] of Object.entries(fill)){ if(!isEmpty(local.fields[k])) continue; local.fields[k]=v; const el=$('#f_'+k); if(el){el.value=v; el.classList.remove('empty')} n++ }
+    if(kind==='Fixed' && applyFixedProto(local)){ for(const q of ['set_kv','set_t','set_mas']){const e=$('#f_'+q); if(e) e.value=local.fields[q]} n++ }
     if(n){refreshChecks(); queueUnitSave(local); setSave('Filled from catalogue – check the values')}};
   if(mod){mod.addEventListener('change',apply); mod.addEventListener('input',()=>{ if(catModels(kind,man?.value).some(x=>x.toLowerCase()===mod.value.trim().toLowerCase())) apply() })}
 }
@@ -529,7 +542,9 @@ function renderUnit(){
   (async()=>{for(const p of local.photos) await addThumb(p)})();
   app.querySelectorAll('[data-k]').forEach(el=>{
     const on=()=>{const k=el.dataset.k, val=el.value; if(el.tagName==='SELECT') el.classList.toggle('empty',val==='');
-      local.fields[k]=val.trim()===''?null:val.trim(); refreshChecks(); queueUnitSave(local)};
+      local.fields[k]=val.trim()===''?null:val.trim();
+      if(local.kind==='Fixed' && k==='max_kv' && applyFixedProto(local)) for(const q of ['set_kv','set_t','set_mas']){const e=document.getElementById('f_'+q); if(e) e.value=local.fields[q]}
+      refreshChecks(); queueUnitSave(local)};
     el.addEventListener(el.tagName==='SELECT'?'change':'input',on);
   });
   $('#phIn').onchange=e=>addPhotos(e.target.files);
