@@ -65,6 +65,7 @@ button{font:inherit}
 .f label .u{font:400 12px var(--mono);color:var(--muted);margin-left:4px}
 .f .h{font-size:12px;color:var(--muted)}
 .f .w{font-size:12px;color:var(--warn);font-weight:500}
+.f .c{font-size:12px;color:var(--muted)} .f .c b{font-weight:700} .f .c b.ok{color:#1e7b45} .f .c b.bad{color:#b42318} .f .c.fail{background:#fde7e5;border-radius:6px;padding:2px 6px;color:#7a1a12}
 .f .w.bad{color:var(--bad)}
 input,select,textarea{font:15px var(--sans);color:var(--ink);background:var(--ground);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-height:42px}
 input.num,input.list{font-family:var(--mono);font-variant-numeric:tabular-nums}
@@ -445,7 +446,94 @@ function apronRejected(u){const F=u.fields||{}; if(F.visual==='Defects found') r
   const lim=(F.item_type==='Thyroid collar'||F.defect_loc==='Thyroid collar')?11:(F.defect_loc==='Non-critical (seams, overlap, back)'?670:15); return a>lim}
 function statusPill(u){const m=missing(u).length, w=Object.values(warnings(u)).filter(x=>x.bad).length;
   if(u.kind==='Apron' && !w && !m && apronRejected(u)) return `<span class="pill bad">reject</span>`;
-  if(w) return `<span class="pill bad">${w} to fix</span>`; if(m) return `<span class="pill miss">${m} missing</span>`; return `<span class="pill ok">complete</span>`}
+  if(w) return `<span class="pill bad">${w} to fix</span>`; if(m) return `<span class="pill miss">${m} missing</span>`;
+  const fl=Object.values(criteria(u)).filter(x=>x.ok===false).length; if(fl) return `<span class="pill bad">${fl} FAIL – recheck</span>`;
+  return `<span class="pill ok">complete</span>`}
+
+/* ---------- acceptance criteria (same limits as the laptop report) – shown under each field while typing ---------- */
+const CRIT_CARD={
+  IO:'kV ±5 % · time ±10 % · reproducibility CV kV ≤5 %, time ≤10 %, output ≤5 % · linearity L ≤0.1 · HVL ≥1.5 mm Al (60 kV) / ≥1.8 mm Al (70 kV)',
+  OPG:'kV ±5 % · time ±10 % · reproducibility CV kV ≤5 %, time ≤10 %, output ≤5 % · HVL ≥2.5 mm Al @70 kV, ≥2.9 @80, ≥3.2 @90',
+  CBCT:'kV ±5 % · time ±10 % · reproducibility CV kV ≤5 %, time ≤10 %, output ≤5 % · HVL ≥2.5 mm Al @70 kV, ≥2.9 @80, ≥3.2 @90',
+  Fixed:'kV ±5 % · time ±10 % · reproducibility CV kV ≤5 %, time ≤10 %, output ≤5 % · linearity L ≤0.1 (overall and each pair) · HVL ≥2.5 mm Al @70 kV, ≥2.9 @80, ≥3.6 @100',
+  Fluoro:'kV ±5 % · reproducibility CV ≤5 % · air kerma rate ≤88 mGy/min (high-level ≤176) · HVL ≥2.5 mm Al @70 kV, ≥2.9 @80',
+  Carm:'kV ±5 % or ±5 kV (whichever is higher) · HVL ≥2.9 mm Al @80 kV · linearity L ≤0.1 · reproducibility CV ≤5 % (kV, time, output)',
+  Mammo:'kV ±5 % · reproducibility CV kV ≤2 %, output ≤5 % · HVL between kVp/100 + 0.03 and kVp/100 + C (W/Rh 0.30, Mo/Mo 0.12)',
+  CT:'Measured CTDIvol within ±20 % of the displayed CTDIvol',
+};
+const LIMI={controlled:0.5, uncontrolled:0.05}, LIMA={controlled:1, uncontrolled:0.1};
+function criteria(u){
+  const F=u.fields||{}, c={}, n=k=>isEmpty(F[k])||isNaN(Number(F[k]))?null:Number(F[k]), K=u.kind;
+  const set=(k,txt,ok,extra)=>{c[k]={txt,ok,extra}};
+  const yes=v=>/^(yes|y|ok|pass)$/i.test(String(v||'').trim()), none=v=>/^(none|no|not present|0|ok)$/i.test(String(v||'').trim());
+  /* survey (all units): instantaneous limit; with workload -> annual dose decides, like the report */
+  const bg=n('bg'), W=n('workload');
+  const surv=(k,cls,T,label)=>{const v=n(k); if(v===null){set(k,`${label}: ≤ ${LIMI[cls]} µSv/h`,null);return}
+    if(W!==null && bg!==null){const d=Math.max(v-bg,0)*W/60*50*T/1000; set(k,`annual dose ≤ ${LIMA[cls]} mSv/y (${cls}, T ${T<1?'1/'+Math.round(1/T):1})`,d<=LIMA[cls],`= ${d<0.001?d.toExponential(2):d.toFixed(4)} mSv/y`)}
+    else set(k,`≤ ${LIMI[cls]} µSv/h (${cls})`,v<=LIMI[cls])};
+  surv('sc_operator','controlled',1,'Operator'); surv('sc_door','uncontrolled',1/8,'Door'); surv('sc_corridor','uncontrolled',1/5,'Corridor');
+  if(!isEmpty(F.sc_other)){const cl=/^con/i.test(F.sc_other_class||'')?'controlled':'uncontrolled'; surv('sc_other',cl,n('sc_other_t')||1,'Other')}
+  for(let i=1;i<=10;i++){ if(isEmpty(F[`p${i}_val`])) continue; const cl=/^con/i.test(F[`p${i}_class`]||'')?'controlled':'uncontrolled';
+    let T=1; const t=String(F[`p${i}_t`]||'1'); if(t.includes('/')){const [a,b]=t.split('/').map(Number); T=a/b} else if(!isNaN(Number(t))) T=Number(t)||1;
+    surv(`p${i}_val`,cl,T,'Point '+i)}
+  /* fixed radiography */
+  const sid=n('sid')||100;
+  if(n('xray_l')!==null && n('light_l')!==null){const d=Math.abs(n('xray_l')-n('light_l')); set('xray_l',`|light − X-ray| ≤ ${(0.02*sid).toFixed(1)} cm (2 % SID)`,d<=0.02*sid,`= ${d.toFixed(2)} cm`)}
+  if(n('xray_w')!==null && n('light_w')!==null){const d=Math.abs(n('xray_w')-n('light_w')), s=d+(n('xray_l')!==null&&n('light_l')!==null?Math.abs(n('xray_l')-n('light_l')):0);
+    set('xray_w',`≤ ${(0.02*sid).toFixed(1)} cm each, total ≤ ${(0.04*sid).toFixed(1)} cm`,d<=0.02*sid && s<=0.04*sid,`= ${d.toFixed(2)} cm, total ${s.toFixed(2)} cm`)}
+  if(n('iq_centring')!==null) set('iq_centring','≤ 1 % of SID',n('iq_centring')<=1);
+  if(n('iq_spatial')!==null) set('iq_spatial','≥ 2.5 lp/mm',n('iq_spatial')>=2.5);
+  if(n('iq_contrast')!==null) set('iq_contrast','≥ 6 groups',n('iq_contrast')>=6);
+  if(n('iq_lowcon')!==null) set('iq_lowcon','≥ 4 discs',n('iq_lowcon')>=4);
+  if(!isEmpty(F.iq_artefacts)) set('iq_artefacts','none',none(F.iq_artefacts));
+  /* fluoroscopy / C-arm */
+  const hcrit=n('iq_spatial_crit')||1.0;
+  if(n('iq_res_f')!==null) set('iq_res_f',`≥ ${hcrit} lp/mm`,n('iq_res_f')>=hcrit);
+  if(n('iq_lc_f')!==null) set('iq_lc_f','≤ 4 %',n('iq_lc_f')<=4);
+  if(n('iq_res_r')!==null) set('iq_res_r','≥ 2.5 lp/mm',n('iq_res_r')>=2.5);
+  if(n('iq_lc_r')!==null) set('iq_lc_r','≤ 4 %',n('iq_lc_r')<=4);
+  for(const k of ['iq_dist_f','iq_art_f','iq_dist_r','iq_art_r']) if(!isEmpty(F[k])) set(k,'none',none(F[k]));
+  for(const k of ['akr_max','akr1','akr2','akr3']) if(n(k)!==null) set(k,'≤ 88 mGy/min',n(k)<=88);
+  if(n('akr_high')!==null) set('akr_high','≤ 176 mGy/min',n('akr_high')<=176);
+  for(const k of ['gi_switch','gi_apron','gi_apron_cond','gi_filter','gi_sign_door','gi_collim','gi_audible','gi_sign_unit','gi_controls'])
+    if(!isEmpty(F[k])) set(k,'Yes (or N/A)',!/^no$/i.test(F[k]));
+  for(const k of ['cong_m0','cong_m1','cong_m2']) if(!isEmpty(F[k])) set(k,'blades visible',yes(F[k]));
+  for(const k of ['hc_m0','hc_m1','hc_m2']) if(n(k)!==null) set(k,`≥ ${hcrit} lp/mm`,n(k)>=hcrit);
+  if(n('ca_sid_ind')!==null && n('ca_sid_meas')!==null){const p=Math.abs(n('ca_sid_ind')-n('ca_sid_meas'))/n('ca_sid_ind')*100; set('ca_sid_meas','within ±2 % of the indicated SID',p<=2,`= ${p.toFixed(2)} %`)}
+  const csid=n('sid')||100;
+  if(n('bc_top')!==null && n('bc_bottom')!==null){const p=Math.abs(n('bc_top')-n('bc_bottom'))/2/csid*100; set('bc_bottom','(top − bottom)/2 ≤ 2 % of SID',p<=2,`= ${p.toFixed(2)} %`)}
+  if(n('bc_right')!==null && n('bc_left')!==null){const p=Math.abs(n('bc_right')-n('bc_left'))/2/csid*100; set('bc_left','(right − left)/2 ≤ 2 % of SID',p<=2,`= ${p.toFixed(2)} %`)}
+  /* mammography */
+  if(n('agd')!==null) set('agd','≤ 3.0 mGy',n('agd')<=3);
+  if(n('comp_force')!==null) set('comp_force','111 – 200 N',n('comp_force')>=111&&n('comp_force')<=200);
+  if(n('ph_fibres')!==null) set('ph_fibres','≥ 4',n('ph_fibres')>=4);
+  if(n('ph_specks')!==null) set('ph_specks','≥ 3',n('ph_specks')>=3);
+  if(n('ph_masses')!==null) set('ph_masses','≥ 3',n('ph_masses')>=3);
+  /* CT */
+  if(n('ct_align_light')!==null) set('ct_align_light','≤ 2 mm',Math.abs(n('ct_align_light'))<=2);
+  if(n('ct_slice_pos')!==null) set('ct_slice_pos','≤ 2 mm',Math.abs(n('ct_slice_pos'))<=2);
+  if(!isEmpty(F.ct_st_measured)&&!isEmpty(F.ct_st_nominal)){const a=String(F.ct_st_nominal).split(/[,;\s/]+/).map(Number), b=String(F.ct_st_measured).split(/[,;\s/]+/).map(Number);
+    if(a.length===b.length && !a.concat(b).some(isNaN)) set('ct_st_measured','each within ±1.5 mm of nominal',a.every((x,i)=>Math.abs(b[i]-x)<=1.5))}
+  if(n('ct_distance')!==null){const v=n('ct_distance'); set('ct_distance',v>50?'100 ± 1 mm':'error ≤ 1 mm',v>50?Math.abs(v-100)<=1:Math.abs(v)<=1)}
+  if(n('ct_table')!==null) set('ct_table','≤ 2 mm',Math.abs(n('ct_table'))<=2);
+  if(n('ct_res_abd')!==null) set('ct_res_abd','≥ 6 lp/cm',n('ct_res_abd')>=6);
+  if(n('ct_res_chest')!==null) set('ct_res_chest','≥ 8 lp/cm',n('ct_res_chest')>=8);
+  for(const s of ['abd','head']){const m=n(`ct_lc_${s}_mass`), b=n(`ct_lc_${s}_bkg`), d=n(`ct_lc_${s}_sd`);
+    if(m!==null&&b!==null&&d) {const cnr=Math.abs(m-b)/d; set(`ct_lc_${s}_sd`,'CNR ≥ 1.0',cnr>=1,`CNR = ${cnr.toFixed(2)}`)}
+    if(n(`ct_lc_${s}_visible`)!==null) set(`ct_lc_${s}_visible`,'≤ 6 mm rod visible',n(`ct_lc_${s}_visible`)<=6)}
+  for(const [k,lo,hi] of [['ct_n_water',-7,7],['ct_n_air',-1005,-970],['ct_n_teflon',850,970],['ct_n_acrylic',110,135],['ct_n_polyethylene',-107,-84]])
+    if(n(k)!==null) set(k,`${lo} to ${hi} HU`,n(k)>=lo&&n(k)<=hi);
+  const cc=n('ct_u_center'); if(cc!==null) set('ct_u_center','−7 to +7 HU',Math.abs(cc)<=7);
+  for(const k of ['ct_u_top','ct_u_right','ct_u_bottom','ct_u_left']) if(n(k)!==null && cc!==null) set(k,'within 5 HU of the centre',Math.abs(n(k)-cc)<=5,`= ${Math.abs(n(k)-cc).toFixed(1)} HU`);
+  if(!isEmpty(F.ct_artefacts)) set('ct_artefacts','none',/^none$/i.test(F.ct_artefacts));
+  if(!isEmpty(F.ct_display)) set('ct_display','Pass',/^pass$/i.test(F.ct_display));
+  /* aprons */
+  if(K==='Apron'){ if(!isEmpty(F.visual)) set('visual','no defects',F.visual==='No defects');
+    const lim=(F.item_type==='Thyroid collar'||/thyroid/i.test(F.item_type||'')||F.defect_loc==='Thyroid collar')?11:(F.defect_loc==='Non-critical (seams, overlap, back)'?670:15);
+    if(F.img_result==='Defects found' && n('defect_area')!==null) set('defect_area',`≤ ${lim} mm² (Lambert & McKeon)`,n('defect_area')<=lim);
+    else if(F.img_result) set('img_result',`defect ≤ 15 mm² critical / 670 mm² seams / 11 mm² thyroid`,F.img_result==='No defects'?true:null)}
+  return c;
+}
 
 /* ---------- saving (coalesced) ---------- */
 function queueUnitSave(u){clearTimeout(pending.get(u.id)); pending.set(u.id,setTimeout(()=>flushUnit(u.id),400)); setSave('Saving…')}
@@ -541,7 +629,7 @@ function fieldHTML(f,F,w){
   if(type===S) input=`<select id="${id}" data-k="${k}" class="${cls} ${isEmpty(v)?'empty':''}">${o.opts.map(x=>`<option ${String(v)===x?'selected':''} value="${esc(x)}">${x||'—'}</option>`).join('')}</select>`;
   else if(type===A) input=`<textarea id="${id}" data-k="${k}">${esc(v)}</textarea>`;
   else input=`<input id="${id}" data-k="${k}" class="${cls}" ${['room','manufacturer','model'].includes(k)?`list="dl_${k}"`:''} value="${esc(v)}" placeholder="${esc(o.ph||' ')}" ${type===N?'inputmode="decimal"':''} ${type===L?'autocapitalize="off"':''} autocomplete="off">`;
-  const warn=w[k]?`<div class="w ${w[k].bad?'bad':''}" id="w_${k}">${esc(w[k].m)}</div>`:`<div class="w" id="w_${k}" hidden></div>`;
+  const warn=(w[k]?`<div class="w ${w[k].bad?'bad':''}" id="w_${k}">${esc(w[k].m)}</div>`:`<div class="w" id="w_${k}" hidden></div>`)+`<div class="c" id="c_${k}" hidden></div>`;
   return `<div class="f ${o.wide?'wide':''}"><label for="${id}">${esc(label)}${unit?`<span class="u">${esc(unit)}</span>`:''}${o.req?' *':''}</label>${input}${o.h?`<div class="h">${esc(o.h)}</div>`:''}${warn}</div>`;
 }
 async function photoURL(id){ if(urls.has(id)) return urls.get(id); const p=await getOne('photos',id); if(!p) return ''; const u=URL.createObjectURL(p.blob); urls.set(id,u); return u }
@@ -561,6 +649,7 @@ function renderUnit(){
       <div class="photos" id="phList"></div>
     </div>
     ${miss.length?`<div class="note warn" style="margin-top:12px" id="missNote">Still needed: ${miss.map(f=>esc(f[1])).join(', ')}</div>`:`<div class="note info" style="margin-top:12px" id="missNote">All required fields are filled.</div>`}
+    ${CRIT_CARD[local.kind]?`<div class="note info" style="margin-top:8px"><b>Check on the meter screen before leaving:</b> ${esc(CRIT_CARD[local.kind])}</div>`:''}
     ${K.sections.map(([title,fields])=>`<h2>${esc(title)}</h2><div class="panel"><div class="grid">${fields.map(f=>fieldHTML(f,local.fields,w)).join('')}</div></div>`).join('')}
     <h2>Notes</h2><div class="panel"><div class="grid">${fieldHTML(['remarks','Remarks for the report','',A,{wide:1}],local.fields,w)}</div>
       <div class="row" style="margin-top:12px"><button class="btn danger" id="delU">Delete this unit</button></div></div>`;
@@ -573,7 +662,7 @@ function renderUnit(){
     el.addEventListener(el.tagName==='SELECT'?'change':'input',on);
   });
   $('#phIn').onchange=e=>addPhotos(e.target.files);
-  wireCatalog();
+  wireCatalog(); refreshChecks();
   const delB=$('#delU'); delB.onclick=async()=>{
     if(delB.dataset.armed!=='1'){delB.dataset.armed='1';delB.textContent='Tap again to delete';return}
     clearTimeout(pending.get(local.id)); pending.delete(local.id);
@@ -591,8 +680,13 @@ function renderUnit(){
 }
 async function addThumb(p){const u=await photoURL(p.id); const d=document.createElement('div'); d.className='ph';
   d.innerHTML=`<img src="${esc(u)}" alt="${esc(p.label)}"><span>${esc(p.label)}</span>`; $('#phList')?.append(d)}
+function critHTML(c){ if(!c) return '';
+  if(c.ok===true) return `<b class="ok">✓ PASS</b> · ${esc(c.txt)}${c.extra?' '+esc(c.extra):''}`;
+  if(c.ok===false) return `<b class="bad">✗ FAIL – check / repeat</b> · ${esc(c.txt)}${c.extra?' '+esc(c.extra):''}`;
+  return `Limit: ${esc(c.txt)}`}
 function refreshChecks(){
-  const w=warnings(local);
+  const w=warnings(local), cr=criteria(local);
+  app.querySelectorAll('.c[id^="c_"]').forEach(el=>{const k=el.id.slice(2), c=cr[k]; if(c){el.hidden=false; el.innerHTML=critHTML(c); el.classList.toggle('fail',c.ok===false)} else {el.hidden=true; el.classList.remove('fail')}});
   app.querySelectorAll('.w[id^="w_"]').forEach(el=>{const k=el.id.slice(2); if(w[k]){el.hidden=false;el.textContent=w[k].m;el.classList.toggle('bad',!!w[k].bad)} else el.hidden=true});
   const miss=missing(local), n=$('#missNote');
   if(n){n.className='note '+(miss.length?'warn':'info'); n.textContent=miss.length?'Still needed: '+miss.map(f=>f[1]).join(', '):'All required fields are filled.'}
