@@ -546,7 +546,7 @@ function criteria(u){
   for(const k of ['bg','sc_operator','sc_door','sc_corridor','sc_other']) rng(k,0,1000,'0 – 1000 µSv/h');
   rng('workload',0,10000,'0 – 10000 min/week');
   /* any other number that is obviously a typing slip */
-  for(const k in F){const v=n(k); if(v!==null && Math.abs(v)>1e6 && !(c[k]&&c[k].ok===false)) set(k,'check this value',false,`= ${v} – too large`)}
+  for(const f of allFields(K)){const k=f[0]; if(f[3]!==N) continue; const v=n(k); if(v!==null && Math.abs(v)>1e6 && !(c[k]&&c[k].ok===false)) set(k,'check this value',false,`= ${v} – too large`)}
   /* show the limit under every field that has one, even before it is filled (pair tests: under both fields) */
   const HINT={akr1:'≤ 88 mGy/min',akr2:'≤ 88 mGy/min',akr3:'≤ 88 mGy/min',akr_max:'≤ 88 mGy/min',akr_high:'≤ 176 mGy/min (high-level mode)',
     ca_sid_ind:'measured SID within ±2 % of this value',ca_sid_meas:'within ±2 % of the indicated SID',
