@@ -251,11 +251,11 @@ const CARM={name:'C-arm', short:'C-ARM', sections:[
       ['gi_sign_door','Warning sign on door(s)','',S,{opts:YNA}],['gi_collim','Collimation working','',S,{opts:YNA}],
       ['gi_audible','Audible exposure signal','',S,{opts:YNA}],['gi_sign_unit','X-ray warning sign on unit','',S,{opts:YNA}],
       ['gi_controls','Controls, lights & indicators','',S,{opts:YNA}]]],
-    ['Exposures – meter file in this order: kV shots → linearity → reproducibility',[METER,
+    ['Exposures – meter file in this order: kV shots → reproducibility → linearity → max air kerma (Mag 0, 1, 2 last)',[METER,
       ['ca_mode','Mode of test','',S,{opts:['','Fluoroscopic manual mode','Radiographic manual mode']}],
       ['set_kv_fluoro','1) kVp accuracy – set kV per shot','kV',L,{req:1,wide:1,ph:'50,60,70,80,90,100,110',h:'One shot per kV, up to the max kV. Use - to skip a shot.'}],
       ['ca_lin_kv','2) Linearity – kV','kV',N,{ph:'80'}],
-      ['ca_lin_ma','2) Linearity – mA per shot','mA',L,{wide:1,ph:'2,4,6',h:'Three shots at the same kV, a different mA each'}],
+      ['ca_lin_ma','2) Linearity – mA per shot','mA',L,{wide:1,ph:'2,4,6',h:'Leave empty if you keep the mA and double the time (40, 80, 160, 320 ms)'}],
       ['ca_rep_n','3) Reproducibility – no. of shots','',N,{ph:'5',h:'Same settings, one after the other'}],
       ['ca_rep_kv','3) Reproducibility – kV','kV',N,{ph:'80'}],
       ['sid','SID','cm',N,{ph:'100'}],['ca_scd','SCD (source – detector of the meter)','cm',N,{ph:'70'}]]],
@@ -265,9 +265,9 @@ const CARM={name:'C-arm', short:'C-ARM', sections:[
       ['bc_right','Beam centring – right','cm',N,{}],['bc_left','Beam centring – left','cm',N,{}],
       ['cong_m0','Blades visible – Mag 0','',S,{opts:YN2}],['cong_m1','Blades visible – Mag 1','',S,{opts:YN2}],['cong_m2','Blades visible – Mag 2','',S,{opts:YN2}]]],
     ['Maximum air kerma rate (ABC + attenuator)',[
-      ['akr_lab1','FOV / mode 1','',T,{ph:'Mag 0'}],['akr_kv1','kVp 1','kV',N,{}],['akr_ma1','mA 1','mA',N,{}],['akr1','Air kerma rate 1','mGy/min',N,{}],
-      ['akr_lab2','FOV / mode 2','',T,{ph:'Mag 1'}],['akr_kv2','kVp 2','kV',N,{h:'Same as mode 1 – change only if different'}],['akr_ma2','mA 2','mA',N,{h:'Same as mode 1 – change only if different'}],['akr2','Air kerma rate 2','mGy/min',N,{}],
-      ['akr_lab3','FOV / mode 3','',T,{ph:'Mag 2'}],['akr_kv3','kVp 3','kV',N,{h:'Same as mode 1 – change only if different'}],['akr_ma3','mA 3','mA',N,{h:'Same as mode 1 – change only if different'}],['akr3','Air kerma rate 3','mGy/min',N,{}],
+      ['akr_lab1','FOV / mode 1','',T,{ph:'Mag 0'}],['akr_kv1','kVp 1','kV',N,{}],['akr_ma1','mA 1','mA',N,{}],['akr1','Air kerma rate 1','mGy/min',N,{h:'Leave empty – taken from the meter file (the last shots, one per Mag)'}],
+      ['akr_lab2','FOV / mode 2','',T,{ph:'Mag 1'}],['akr_kv2','kVp 2','kV',N,{h:'Same as mode 1 – change only if different'}],['akr_ma2','mA 2','mA',N,{h:'Same as mode 1 – change only if different'}],['akr2','Air kerma rate 2','mGy/min',N,{h:'Leave empty – taken from the meter file'}],
+      ['akr_lab3','FOV / mode 3','',T,{ph:'Mag 2'}],['akr_kv3','kVp 3','kV',N,{h:'Same as mode 1 – change only if different'}],['akr_ma3','mA 3','mA',N,{h:'Same as mode 1 – change only if different'}],['akr3','Air kerma rate 3','mGy/min',N,{h:'Leave empty – taken from the meter file'}],
       ['akr_high','High-level / boost mode','mGy/min',N,{}]]],
     ['High & low contrast',[
       ['hc_m0','High contrast – Mag 0','lp/mm',N,{}],['hc_m1','High contrast – Mag 1','lp/mm',N,{}],['hc_m2','High contrast – Mag 2','lp/mm',N,{}],
@@ -309,7 +309,7 @@ const STD={
   CBCT:{set_kv:'60,70,80,70,70',n_shots:'5'},
   Fluoro:{n_fluoro:'11',set_kv_fluoro:'50,60,70,80,90,100,110,120,70,70,70',set_kv:FIX_KV,set_t:FIX_T,set_mas:FIX_MAS,sid:'100'},
   Mammo:{set_kv:'22,23,24,25,26,27,28,29,30,31,32,27,27,27'},
-  Carm:{set_kv_fluoro:'50,60,70,80,90,100,110',ca_lin_kv:'80',ca_rep_n:'5',ca_rep_kv:'80',sid:'100',ca_scd:'70',ca_mode:'Fluoroscopic manual mode',akr_lab1:'Mag 0',akr_lab2:'Mag 1',akr_lab3:'Mag 2'},
+  Carm:{set_kv_fluoro:'50,60,70,80,90,100,110',ca_lin_kv:'80',ca_rep_n:'5',ca_rep_kv:'80',sid:'100',ca_scd:'70',ca_mode:'Fluoroscopic manual mode',akr_lab1:'Mag 0',akr_lab2:'Mag 1',akr_lab3:'Mag 2',bc_top:'58',bc_bottom:'58',bc_right:'59',bc_left:'59'},
 };
 /* Fixed X-ray: standard protocol follows the unit's max kV (150: 50-150 kV @5 ms; 125/133: 50-120/130 kV, 5 ms to 90 kV then 10 ms) */
 function fixedProto(mk){ mk=Number(mk); if(!mk||isNaN(mk)) mk=150; const top=Math.floor(Math.min(150,Math.max(90,mk))/10)*10;
