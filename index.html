@@ -153,7 +153,8 @@ const KINDS = {
     ['Exposures',[METER,
       ['set_kv','Set kV per shot','kV',L,{req:1,wide:1,ph:'50,60,70,80,90,100,109,117,130,70,70,70,70,70,70,70'}],
       ['set_t','Set time per shot','ms',L,{wide:1,ph:'-,-,20,-,…,40,40,40,80,160,380,500'}],
-      ['set_mas','Set mAs per shot','mAs',L,{wide:1,ph:'5,5,5,…,10,10,10,20,40,80,100'}],
+      ['ma','mA used','mA',N,{ph:'250',h:'Set mAs = mA × time – filled automatically'}],
+      ['set_mas','Set mAs per shot','mAs',L,{wide:1,ph:'filled from mA × time'}],
       ['sid','SID','cm',N,{ph:'100'}],
       ['focal','Focal spot','',S,{opts:['','Small','Large']}]]],
     ['Collimation',[
@@ -240,15 +241,38 @@ const STAMP=['stamp','Report copy','',S,{opts:['','Yes','No','Both','Blank'],h:'
  e.splice(i+1,0,['CBCT',{name:'CBCT', short:'CBCT', sections:KINDS.OPG.sections.map(s=>[s[0],s[1].slice()])}]);
  for(const k of Object.keys(KINDS)) delete KINDS[k]; for(const [k,v] of e) KINDS[k]=v;}
 /* C-arm: fluoroscopy only (no radiographic mode); sent to the laptop as a Fluoro-sheet row whose room says C-arm */
-const CARM={name:'C-arm (fluoro)', short:'C-ARM', sections:[
+const YNA=['','Yes','No','N/A'], YN2=['','Yes','No'];
+const CARM={name:'C-arm', short:'C-ARM', sections:[
     ['Unit',ID],
-    ['Fluoroscopic mode',[METER,
-      ['n_fluoro','No. of fluoro runs in file','',N,{req:1}],
-      ['set_kv_fluoro','Set kV per fluoro run','kV',L,{req:1,wide:1,ph:'50,60,70,80,90,100,110,120,70,70,70',h:'In the order taken. Use - to skip a run.'}],
-      ['akr_max','Max air kerma rate (ABC)','mGy/min',N,{}],
-      ['akr_high','High-level / boost mode AKR','mGy/min',N,{}],
-      ['hvl_meter','Separate HVL file (optional)','',T,{wide:1}]]],
-    ['Image quality – fluoro',KINDS.Fluoro.sections.find(x=>x[0]==='Image quality – fluoro')[1].slice()],
+    ['General unit inspection',[
+      ['gi_switch','Exposure switch mounted properly','',S,{opts:YNA}],['gi_apron','Lead apron available','',S,{opts:YNA}],
+      ['gi_apron_cond','Lead apron in good condition','',S,{opts:YNA}],['gi_filter','Filter permanently installed','',S,{opts:YNA}],
+      ['gi_sign_door','Warning sign on door(s)','',S,{opts:YNA}],['gi_collim','Collimation working','',S,{opts:YNA}],
+      ['gi_audible','Audible exposure signal','',S,{opts:YNA}],['gi_sign_unit','X-ray warning sign on unit','',S,{opts:YNA}],
+      ['gi_controls','Controls, lights & indicators','',S,{opts:YNA}]]],
+    ['Exposures – meter file in this order: kV shots → linearity → reproducibility',[METER,
+      ['ca_mode','Mode of test','',S,{opts:['','Fluoroscopic manual mode','Radiographic manual mode']}],
+      ['set_kv_fluoro','1) kVp accuracy – set kV per shot','kV',L,{req:1,wide:1,ph:'50,60,70,80,90,100,110',h:'One shot per kV, up to the max kV. Use - to skip a shot.'}],
+      ['ca_lin_kv','2) Linearity – kV','kV',N,{ph:'80'}],
+      ['ca_lin_ma','2) Linearity – mA per shot','mA',L,{wide:1,ph:'2,4,6',h:'Three shots at the same kV, a different mA each'}],
+      ['ca_rep_n','3) Reproducibility – no. of shots','',N,{ph:'5',h:'Same settings, one after the other'}],
+      ['ca_rep_kv','3) Reproducibility – kV','kV',N,{ph:'80'}],
+      ['sid','SID','cm',N,{ph:'100'}],['ca_scd','SCD (source – detector of the meter)','cm',N,{ph:'70'}]]],
+    ['Geometry',[
+      ['ca_sid_ind','SID indicated','cm',N,{}],['ca_sid_meas','SID measured','cm',N,{h:'Focal-spot mark to the image receptor'}],
+      ['bc_top','Beam centring – top','cm',N,{h:'Centre marker to the image edge'}],['bc_bottom','Beam centring – bottom','cm',N,{}],
+      ['bc_right','Beam centring – right','cm',N,{}],['bc_left','Beam centring – left','cm',N,{}],
+      ['cong_m0','Blades visible – Mag 0','',S,{opts:YN2}],['cong_m1','Blades visible – Mag 1','',S,{opts:YN2}],['cong_m2','Blades visible – Mag 2','',S,{opts:YN2}]]],
+    ['Maximum air kerma rate (ABC + attenuator)',[
+      ['akr_lab1','FOV / mode 1','',T,{ph:'Mag 0'}],['akr_kv1','kVp 1','kV',N,{}],['akr_ma1','mA 1','mA',N,{}],['akr1','Air kerma rate 1','mGy/min',N,{}],
+      ['akr_lab2','FOV / mode 2','',T,{ph:'Mag 1'}],['akr_kv2','kVp 2','kV',N,{}],['akr_ma2','mA 2','mA',N,{}],['akr2','Air kerma rate 2','mGy/min',N,{}],
+      ['akr_lab3','FOV / mode 3','',T,{ph:'Mag 2'}],['akr_kv3','kVp 3','kV',N,{}],['akr_ma3','mA 3','mA',N,{}],['akr3','Air kerma rate 3','mGy/min',N,{}],
+      ['akr_high','High-level / boost mode','mGy/min',N,{}]]],
+    ['High & low contrast',[
+      ['hc_m0','High contrast – Mag 0','lp/mm',N,{}],['hc_m1','High contrast – Mag 1','lp/mm',N,{}],['hc_m2','High contrast – Mag 2','lp/mm',N,{}],
+      ['iq_spatial_crit','High contrast criterion','lp/mm',N,{ph:'1.0'}],
+      ['lc_m0','Low contrast – Mag 0 (smallest seen)','',T,{ph:'1 mm'}],['lc_m1','Low contrast – Mag 1','',T,{ph:'1 mm'}],['lc_m2','Low contrast – Mag 2','',T,{ph:'1 mm'}],
+      ['iq_dist_f','Distortion','',S,{opts:['','None','Present']}],['iq_art_f','Artefacts','',S,{opts:['','None','Present']}]]],
     ['Radiation survey',SURVEY]]};
 /* Room radiation survey: any X-ray room (X-ray, OT, Cath lab, CT, mammo, dental ...) - free list of measuring points */
 const PT=[]; for(let i=1;i<=10;i++) PT.push(
@@ -284,18 +308,19 @@ const STD={
   CBCT:{set_kv:'60,70,80,70,70',n_shots:'5'},
   Fluoro:{n_fluoro:'11',set_kv_fluoro:'50,60,70,80,90,100,110,120,70,70,70',set_kv:FIX_KV,set_t:FIX_T,set_mas:FIX_MAS,sid:'100'},
   Mammo:{set_kv:'22,23,24,25,26,27,28,29,30,31,32,27,27,27'},
-  Carm:{n_fluoro:'11',set_kv_fluoro:'50,60,70,80,90,100,110,120,70,70,70'},
+  Carm:{set_kv_fluoro:'50,60,70,80,90,100,110',ca_lin_kv:'80',ca_rep_n:'5',ca_rep_kv:'80',sid:'100',ca_scd:'70',ca_mode:'Fluoroscopic manual mode',akr_lab1:'Mag 0',akr_lab2:'Mag 1',akr_lab3:'Mag 2'},
 };
 /* Fixed X-ray: standard protocol follows the unit's max kV (150: 50-150 kV @5 ms; 125/133: 50-120/130 kV, 5 ms to 90 kV then 10 ms) */
 function fixedProto(mk){ mk=Number(mk); if(!mk||isNaN(mk)) mk=150; const top=Math.floor(Math.min(150,Math.max(90,mk))/10)*10;
   const sw=[]; for(let k=50;k<=top;k+=10) sw.push(k);
   const st=sw.map(k=>(mk>=150||k<=90)?5:10), ms=st.concat([10,10,10,20,40,80,100,160]);
-  return {set_kv:sw.concat([70,70,70,70,70,70,70,70]).join(','), set_t:ms.join(','), set_mas:ms.map(t=>+(t*0.25).toFixed(2)).join(',')} }
-function isStdFixed(F){ const all=[90,100,110,120,125,130,133,140,150].map(fixedProto);
-  return ['set_kv','set_t','set_mas'].every(k=>isEmpty(F[k]) || all.some(p=>p[k]===String(F[k]).replace(/\s+/g,''))) }
-function applyFixedProto(u){ if(u.kind!=='Fixed' || !isStdFixed(u.fields)) return false; const p=fixedProto(u.fields.max_kv); let ch=false;
+  return {set_kv:sw.concat([70,70,70,70,70,70,70,70]).join(','), set_t:ms.join(','), set_mas:sw.concat([70,70,70,70,70,70,70,70]).map(()=>'-').join(',')} }
+function isStdFixed(F,u){ const all=[90,100,110,120,125,130,133,140,150].map(fixedProto);
+  return ['set_kv','set_t','set_mas'].every(k=>isEmpty(F[k]) || (u && u.auto && u.auto[k]===String(F[k])) || (all.some(p=>p[k]===String(F[k]).replace(/\s+/g,'')) || (k==='set_mas' && (/^[0-9.,]+$/.test(String(F[k]).replace(/\s+/g,'')) && (String(F[k]).split(',').every(x=>['1.25','2.5','5','10','20','25','40','80','100'].includes(x.trim())) || (Number(F.ma)>0 && all.some(p=>p.set_t.split(',').map(t=>+(Number(F.ma)*Number(t)/1000).toFixed(3)).join(',')===String(F[k]).replace(/\s+/g,'')))))))) }
+function applyFixedProto(u){ if(u.kind!=='Fixed' || !isStdFixed(u.fields,u)) return false; const p=fixedProto(u.fields.max_kv); let ch=false;
+  const mA=Number(u.fields.ma); if(mA>0) p.set_mas=p.set_t.split(',').map(t=>+(mA*Number(t)/1000).toFixed(3)).join(',');
   for(const k of ['set_kv','set_t','set_mas']) if(u.fields[k]!==p[k]){u.fields[k]=p[k]; ch=true}
-  return ch }
+  u.auto={...p}; return ch }
 function applyStd(u){ if(u.kind==='Fixed'){ const a=!u.stdApplied; u.stdApplied=true; const b=applyFixedProto(u);
     if(a && isEmpty(u.fields.sid)) u.fields.sid='100'; if(a && isEmpty(u.fields.focal)) u.fields.focal='Small'; return a||b }
   if(u.stdApplied) return false; const d=STD[u.kind]||{}; let n=0;
@@ -543,7 +568,7 @@ function renderUnit(){
   app.querySelectorAll('[data-k]').forEach(el=>{
     const on=()=>{const k=el.dataset.k, val=el.value; if(el.tagName==='SELECT') el.classList.toggle('empty',val==='');
       local.fields[k]=val.trim()===''?null:val.trim();
-      if(local.kind==='Fixed' && k==='max_kv' && applyFixedProto(local)) for(const q of ['set_kv','set_t','set_mas']){const e=document.getElementById('f_'+q); if(e) e.value=local.fields[q]}
+      if(local.kind==='Fixed' && (k==='max_kv'||k==='ma') && applyFixedProto(local)) for(const q of ['set_kv','set_t','set_mas']){const e=document.getElementById('f_'+q); if(e) e.value=local.fields[q]}
       refreshChecks(); queueUnitSave(local)};
     el.addEventListener(el.tagName==='SELECT'?'change':'input',on);
   });
