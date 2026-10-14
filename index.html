@@ -309,7 +309,7 @@ const STD={
   CBCT:{set_kv:'60,70,80,70,70',n_shots:'5'},
   Fluoro:{n_fluoro:'11',set_kv_fluoro:'50,60,70,80,90,100,110,120,70,70,70',set_kv:FIX_KV,set_t:FIX_T,set_mas:FIX_MAS,sid:'100'},
   Mammo:{set_kv:'22,23,24,25,26,27,28,29,30,31,32,27,27,27'},
-  Carm:{set_kv_fluoro:'50,60,70,80,90,100,110',ca_lin_kv:'80',ca_rep_n:'5',ca_rep_kv:'80',sid:'100',ca_scd:'70',ca_mode:'Fluoroscopic manual mode',akr_lab1:'Mag 0',akr_lab2:'Mag 1',akr_lab3:'Mag 2',bc_top:'58',bc_bottom:'58',bc_right:'59',bc_left:'59'},
+  Carm:{set_kv_fluoro:'50,60,70,80,90,100,110',ca_lin_kv:'80',ca_rep_n:'5',ca_rep_kv:'80',sid:'100',ca_scd:'70',ca_mode:'Fluoroscopic manual mode',akr_lab1:'Mag 0',akr_lab2:'Mag 1',akr_lab3:'Mag 2',bc_top:'8.5',bc_bottom:'8.7',bc_right:'6.4',bc_left:'6.9'},
 };
 /* Fixed X-ray: standard protocol follows the unit's max kV (150: 50-150 kV @5 ms; 125/133: 50-120/130 kV, 5 ms to 90 kV then 10 ms) */
 function fixedProto(mk){ mk=Number(mk); if(!mk||isNaN(mk)) mk=150; const top=Math.floor(Math.min(150,Math.max(90,mk))/10)*10;
