@@ -266,8 +266,8 @@ const CARM={name:'C-arm', short:'C-ARM', sections:[
       ['cong_m0','Blades visible – Mag 0','',S,{opts:YN2}],['cong_m1','Blades visible – Mag 1','',S,{opts:YN2}],['cong_m2','Blades visible – Mag 2','',S,{opts:YN2}]]],
     ['Maximum air kerma rate (ABC + attenuator)',[
       ['akr_lab1','FOV / mode 1','',T,{ph:'Mag 0'}],['akr_kv1','kVp 1','kV',N,{}],['akr_ma1','mA 1','mA',N,{}],['akr1','Air kerma rate 1','mGy/min',N,{}],
-      ['akr_lab2','FOV / mode 2','',T,{ph:'Mag 1'}],['akr_kv2','kVp 2','kV',N,{}],['akr_ma2','mA 2','mA',N,{}],['akr2','Air kerma rate 2','mGy/min',N,{}],
-      ['akr_lab3','FOV / mode 3','',T,{ph:'Mag 2'}],['akr_kv3','kVp 3','kV',N,{}],['akr_ma3','mA 3','mA',N,{}],['akr3','Air kerma rate 3','mGy/min',N,{}],
+      ['akr_lab2','FOV / mode 2','',T,{ph:'Mag 1'}],['akr_kv2','kVp 2','kV',N,{h:'Same as mode 1 – change only if different'}],['akr_ma2','mA 2','mA',N,{h:'Same as mode 1 – change only if different'}],['akr2','Air kerma rate 2','mGy/min',N,{}],
+      ['akr_lab3','FOV / mode 3','',T,{ph:'Mag 2'}],['akr_kv3','kVp 3','kV',N,{h:'Same as mode 1 – change only if different'}],['akr_ma3','mA 3','mA',N,{h:'Same as mode 1 – change only if different'}],['akr3','Air kerma rate 3','mGy/min',N,{}],
       ['akr_high','High-level / boost mode','mGy/min',N,{}]]],
     ['High & low contrast',[
       ['hc_m0','High contrast – Mag 0','lp/mm',N,{}],['hc_m1','High contrast – Mag 1','lp/mm',N,{}],['hc_m2','High contrast – Mag 2','lp/mm',N,{}],
@@ -500,7 +500,7 @@ function criteria(u){
   for(const k of ['cong_m0','cong_m1','cong_m2']) if(!isEmpty(F[k])) set(k,'blades visible',yes(F[k]));
   for(const k of ['hc_m0','hc_m1','hc_m2']) if(n(k)!==null) set(k,`≥ ${hcrit} lp/mm`,n(k)>=hcrit);
   if(n('ca_sid_ind')!==null && n('ca_sid_meas')!==null){const p=Math.abs(n('ca_sid_ind')-n('ca_sid_meas'))/n('ca_sid_ind')*100; set('ca_sid_meas','within ±2 % of the indicated SID',p<=2,`= ${p.toFixed(2)} %`)}
-  const csid=n('sid')||100;
+  const csid=n('ca_sid_meas')||n('ca_sid_ind')||n('sid')||100;
   if(n('bc_top')!==null && n('bc_bottom')!==null){const p=Math.abs(n('bc_top')-n('bc_bottom'))/2/csid*100; set('bc_bottom','(top − bottom)/2 ≤ 2 % of SID',p<=2,`= ${p.toFixed(2)} %`)}
   if(n('bc_right')!==null && n('bc_left')!==null){const p=Math.abs(n('bc_right')-n('bc_left'))/2/csid*100; set('bc_left','(right − left)/2 ≤ 2 % of SID',p<=2,`= ${p.toFixed(2)} %`)}
   /* mammography */
@@ -532,6 +532,26 @@ function criteria(u){
     const lim=(F.item_type==='Thyroid collar'||/thyroid/i.test(F.item_type||'')||F.defect_loc==='Thyroid collar')?11:(F.defect_loc==='Non-critical (seams, overlap, back)'?670:15);
     if(F.img_result==='Defects found' && n('defect_area')!==null) set('defect_area',`≤ ${lim} mm² (Lambert & McKeon)`,n('defect_area')<=lim);
     else if(F.img_result) set('img_result',`defect ≤ 15 mm² critical / 670 mm² seams / 11 mm² thyroid`,F.img_result==='No defects'?true:null)}
+  /* values that cannot be right (typing slip) */
+  const rng=(k,lo,hi,txt)=>{const v=n(k); if(v!==null && (v<lo||v>hi)) set(k,txt,false,`= ${v} – out of the possible range`)};
+  rng('ca_sid_ind',30,200,'SID is normally 60 – 150 cm'); rng('ca_sid_meas',30,200,'SID is normally 60 – 150 cm');
+  rng('ca_scd',10,200,'SCD is normally 30 – 100 cm'); rng('sid',30,300,'SID is normally 100 – 180 cm');
+  for(const k of ['akr_kv1','akr_kv2','akr_kv3']) rng(k,30,150,'kVp 30 – 150 kV');
+  /* show the limit under every field that has one, even before it is filled (pair tests: under both fields) */
+  const HINT={akr1:'≤ 88 mGy/min',akr2:'≤ 88 mGy/min',akr3:'≤ 88 mGy/min',akr_max:'≤ 88 mGy/min',akr_high:'≤ 176 mGy/min (high-level mode)',
+    ca_sid_ind:'measured SID within ±2 % of this value',ca_sid_meas:'within ±2 % of the indicated SID',
+    bc_top:'|top − bottom| / 2 ≤ 2 % of SID',bc_bottom:'|top − bottom| / 2 ≤ 2 % of SID',bc_right:'|right − left| / 2 ≤ 2 % of SID',bc_left:'|right − left| / 2 ≤ 2 % of SID',
+    cong_m0:'blades visible',cong_m1:'blades visible',cong_m2:'blades visible',
+    hc_m0:`≥ ${hcrit} lp/mm`,hc_m1:`≥ ${hcrit} lp/mm`,hc_m2:`≥ ${hcrit} lp/mm`,lc_m0:'record the smallest object seen',lc_m1:'record the smallest object seen',lc_m2:'record the smallest object seen',
+    gi_switch:'Yes (or N/A)',gi_apron:'Yes (or N/A)',gi_apron_cond:'Yes (or N/A)',gi_filter:'Yes (or N/A)',gi_sign_door:'Yes (or N/A)',gi_collim:'Yes (or N/A)',gi_audible:'Yes (or N/A)',gi_sign_unit:'Yes (or N/A)',gi_controls:'Yes (or N/A)',
+    iq_res_f:`≥ ${hcrit} lp/mm`,iq_lc_f:'≤ 4 %',iq_res_r:'≥ 2.5 lp/mm',iq_lc_r:'≤ 4 %',iq_dist_f:'none',iq_art_f:'none',iq_dist_r:'none',iq_art_r:'none',
+    light_l:'|light − X-ray| ≤ 2 % of SID',xray_l:'|light − X-ray| ≤ 2 % of SID',light_w:'≤ 2 % of SID each, total ≤ 4 %',xray_w:'≤ 2 % of SID each, total ≤ 4 %',
+    iq_centring:'≤ 1 % of SID',iq_spatial:'≥ 2.5 lp/mm',iq_contrast:'≥ 6 groups',iq_lowcon:'≥ 4 discs',iq_artefacts:'none',
+    agd:'≤ 3.0 mGy',comp_force:'111 – 200 N',ph_fibres:'≥ 4',ph_specks:'≥ 3',ph_masses:'≥ 3',
+    ct_align_light:'≤ 2 mm',ct_slice_pos:'≤ 2 mm',ct_st_measured:'each within ±1.5 mm of nominal',ct_table:'≤ 2 mm',ct_res_abd:'≥ 6 lp/cm',ct_res_chest:'≥ 8 lp/cm',
+    ct_n_water:'−7 to 7 HU',ct_n_air:'−1005 to −970 HU',ct_n_teflon:'850 to 970 HU',ct_n_acrylic:'110 to 135 HU',ct_n_polyethylene:'−107 to −84 HU',ct_u_center:'−7 to +7 HU',
+    ct_u_top:'within 5 HU of the centre',ct_u_right:'within 5 HU of the centre',ct_u_bottom:'within 5 HU of the centre',ct_u_left:'within 5 HU of the centre',ct_artefacts:'none'};
+  for(const k in HINT) if(!c[k]) set(k,HINT[k],null);
   return c;
 }
 
@@ -656,7 +676,11 @@ function renderUnit(){
   (async()=>{for(const p of local.photos) await addThumb(p)})();
   app.querySelectorAll('[data-k]').forEach(el=>{
     const on=()=>{const k=el.dataset.k, val=el.value; if(el.tagName==='SELECT') el.classList.toggle('empty',val==='');
+      const prev=local.fields[k];
       local.fields[k]=val.trim()===''?null:val.trim();
+      /* C-arm max AKR: kVp / mA of mode 1 are copied to modes 2 and 3 (kept until you type a different value there) */
+      if(k==='akr_kv1'||k==='akr_ma1') for(const i of [2,3]){const q=k.slice(0,-1)+i;
+        if(isEmpty(local.fields[q])||local.fields[q]===prev){local.fields[q]=local.fields[k]; const e=document.getElementById('f_'+q); if(e) e.value=local.fields[q]??''}}
       if(local.kind==='Fixed' && (k==='max_kv'||k==='ma') && applyFixedProto(local)) for(const q of ['set_kv','set_t','set_mas']){const e=document.getElementById('f_'+q); if(e) e.value=local.fields[q]}
       refreshChecks(); queueUnitSave(local)};
     el.addEventListener(el.tagName==='SELECT'?'change':'input',on);
