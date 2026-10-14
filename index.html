@@ -537,6 +537,16 @@ function criteria(u){
   rng('ca_sid_ind',30,200,'SID is normally 60 – 150 cm'); rng('ca_sid_meas',30,200,'SID is normally 60 – 150 cm');
   rng('ca_scd',10,200,'SCD is normally 30 – 100 cm'); rng('sid',30,300,'SID is normally 100 – 180 cm');
   for(const k of ['akr_kv1','akr_kv2','akr_kv3']) rng(k,30,150,'kVp 30 – 150 kV');
+  for(const k of ['akr_ma1','akr_ma2','akr_ma3']) rng(k,0,100,'mA 0 – 100');
+  for(const k of ['akr1','akr2','akr3','akr_max','akr_high']) rng(k,0,500,'air kerma rate 0 – 500 mGy/min');
+  for(const k of ['bc_top','bc_bottom','bc_right','bc_left']) rng(k,0,60,'distance to the image edge 0 – 60 cm');
+  for(const k of ['hc_m0','hc_m1','hc_m2','iq_res_f','iq_res_r','iq_spatial']) rng(k,0,10,'0 – 10 lp/mm');
+  for(const k of ['xray_l','xray_w','light_l','light_w']) rng(k,0,60,'field size 0 – 60 cm');
+  for(const k of ['max_kv','ma_max']) rng(k,20,160,'20 – 160 kV');
+  for(const k of ['bg','sc_operator','sc_door','sc_corridor','sc_other']) rng(k,0,1000,'0 – 1000 µSv/h');
+  rng('workload',0,10000,'0 – 10000 min/week');
+  /* any other number that is obviously a typing slip */
+  for(const k in F){const v=n(k); if(v!==null && Math.abs(v)>1e6 && !(c[k]&&c[k].ok===false)) set(k,'check this value',false,`= ${v} – too large`)}
   /* show the limit under every field that has one, even before it is filled (pair tests: under both fields) */
   const HINT={akr1:'≤ 88 mGy/min',akr2:'≤ 88 mGy/min',akr3:'≤ 88 mGy/min',akr_max:'≤ 88 mGy/min',akr_high:'≤ 176 mGy/min (high-level mode)',
     ca_sid_ind:'measured SID within ±2 % of this value',ca_sid_meas:'within ±2 % of the indicated SID',
